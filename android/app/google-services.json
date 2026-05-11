@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "446582331096",
+    "project_id": "shopquanao-e89b9",
+    "storage_bucket": "shopquanao-e89b9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:446582331096:android:23ef809d387c5e5cf529ad",
+        "android_client_info": {
+          "package_name": "com.example.shop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDohdmKA89rjVZ-ksugViDNpAcqVHSvqWA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

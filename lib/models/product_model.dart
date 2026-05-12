@@ -8,6 +8,7 @@ class ProductModel {
   final List<String> sizes; // Danh sách size (S, M, L, XL...)
   final String status; 
   final int stock; 
+  final String category; // Danh mục: Áo, Quần, Phụ kiện, Giày...
 
   ProductModel({
     this.idString,
@@ -19,6 +20,7 @@ class ProductModel {
     this.sizes = const [],
     this.status = 'Processing',
     this.stock = 100,
+    this.category = 'Tất cả',
   });
 
   Map<String, dynamic> toMap() {
@@ -31,6 +33,7 @@ class ProductModel {
       'sizes': sizes,
       'status': status,
       'stock': stock,
+      'category': category,
     };
   }
 
@@ -45,17 +48,7 @@ class ProductModel {
       sizes: List<String>.from(map['sizes'] ?? []),
       status: map['status'] ?? 'Processing',
       stock: map['stock'] ?? 100,
-    );
-  }
-
-  ProductModel copyWithId(String newId) {
-    return ProductModel(
-      idString: newId,
-      name: name,
-      price: price,
-      description: description,
-      imageUrl: imageUrl,
-      status: status,
+      category: map['category'] ?? 'Tất cả',
     );
   }
 }

@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import '../models/product_model.dart';
 import '../models/order_model.dart';
 
@@ -65,8 +63,9 @@ class FirebaseService {
   Future<void> placeOrder(ProductModel product, int quantity, String? size, {String? customerName, String? customerPhone, String? customerAddress}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return Future.error("Chưa đăng nhập");
-    if (product.stock < quantity)
+    if (product.stock < quantity) {
       return Future.error("Không đủ hàng trong kho");
+    }
 
     final order = OrderModel(
       userId: user.uid,
@@ -114,12 +113,11 @@ class FirebaseService {
     return usersRef.doc(userId).update(data);
   }
 
-  // --- Chat ---
   Stream<List<Map<String, dynamic>>> getChatUsersStream() {
     return FirebaseFirestore.instance.collection('chats').snapshots().map((
         snapshot) {
       return snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         return {
           'userId': doc.id,
           'userName': data['userName'] ?? 'Khách hàng',

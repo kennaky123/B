@@ -25,6 +25,9 @@ class _AdminScreenState extends State<AdminScreen> {
     final multiImgController = TextEditingController();
     final sizeController = TextEditingController();
     final stockController = TextEditingController();
+    String selectedCategory = 'Áo';
+
+    final categories = ['Áo', 'Quần', 'Phụ kiện', 'Giày'];
 
     if (product != null) {
       nameController.text = product.name;
@@ -34,6 +37,7 @@ class _AdminScreenState extends State<AdminScreen> {
       multiImgController.text = product.imageUrls.join(', ');
       sizeController.text = product.sizes.join(', ');
       stockController.text = product.stock.toString();
+      selectedCategory = categories.contains(product.category) ? product.category : 'Áo';
     } else {
       stockController.text = "100";
     }
@@ -41,53 +45,83 @@ class _AdminScreenState extends State<AdminScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          top: 16,
-          left: 16,
-          right: 16,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Thông tin sản phẩm', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Tên sản phẩm')),
-              TextField(controller: priceController, decoration: const InputDecoration(labelText: 'Giá'), keyboardType: TextInputType.number),
-              TextField(controller: descController, decoration: const InputDecoration(labelText: 'Mô tả')),
-              TextField(controller: imgController, decoration: const InputDecoration(labelText: 'Link ảnh chính')),
-              TextField(controller: multiImgController, decoration: const InputDecoration(labelText: 'Link các ảnh khác (phân cách bằng dấu phẩy)')),
-              TextField(controller: sizeController, decoration: const InputDecoration(labelText: 'Các size (S, M, L...)')),
-              TextField(controller: stockController, decoration: const InputDecoration(labelText: 'Số lượng tồn kho'), keyboardType: TextInputType.number),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () async {
-                  final p = ProductModel(
-                    idString: product?.idString,
-                    name: nameController.text,
-                    price: double.tryParse(priceController.text) ?? 0,
-                    description: descController.text,
-                    imageUrl: imgController.text,
-                    imageUrls: multiImgController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
-                    sizes: sizeController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
-                    stock: int.tryParse(stockController.text) ?? 100,
-                  );
-                  if (product == null) {
-                    await _firebaseService.addProduct(p);
-                  } else {
-                    await _firebaseService.updateProduct(p);
-                  }
-                  if (!mounted) return;
-                  Navigator.pop(context);
-                },
-                child: Text(product == null ? 'Thêm mới' : 'Cập nhật'),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return StatefulBuilder( // Dùng StatefulBuilder để cập nhật Dropdown trong BottomSheet
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                top: 20,
+                left: 20,
+                right: 20,
               ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(product == null ? 'Thêm sản phẩm mới' : 'Cập nhật sản phẩm', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 20),
+                    TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Tên sản phẩm', border: OutlineInputBorder())),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedCategory,
+                      decoration: const InputDecoration(labelText: 'Danh mục (Tag)', border: OutlineInputBorder()),
+                      items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                      onChanged: (val) {
+                        setModalState(() {
+                          selectedCategory = val!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(controller: priceController, decoration: const InputDecoration(labelText: 'Giá', border: OutlineInputBorder()), keyboardType: TextInputType.number),
+                    const SizedBox(height: 12),
+                    TextField(controller: descController, decoration: const InputDecoration(labelText: 'Mô tả', border: OutlineInputBorder()), maxLines: 2),
+                    const SizedBox(height: 12),
+                    TextField(controller: imgController, decoration: const InputDecoration(labelText: 'Link ảnh chính', border: OutlineInputBorder())),
+                    const SizedBox(height: 12),
+                    TextField(controller: multiImgController, decoration: const InputDecoration(labelText: 'Link các ảnh khác (phân cách bằng dấu phẩy)', border: OutlineInputBorder())),
+                    const SizedBox(height: 12),
+                    TextField(controller: sizeController, decoration: const InputDecoration(labelText: 'Các size (S, M, L...)', border: OutlineInputBorder())),
+                    const SizedBox(height: 12),
+                    TextField(controller: stockController, decoration: const InputDecoration(labelText: 'Số lượng tồn kho', border: OutlineInputBorder()), keyboardType: TextInputType.number),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final p = ProductModel(
+                            idString: product?.idString,
+                            name: nameController.text,
+                            price: double.tryParse(priceController.text) ?? 0,
+                            description: descController.text,
+                            imageUrl: imgController.text,
+                            imageUrls: multiImgController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+                            sizes: sizeController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+                            stock: int.tryParse(stockController.text) ?? 100,
+                            category: selectedCategory,
+                          );
+                          if (product == null) {
+                            await _firebaseService.addProduct(p);
+                          } else {
+                            await _firebaseService.updateProduct(p);
+                          }
+                          if (!mounted) return;
+                          Navigator.pop(context);
+                        },
+                        child: Text(product == null ? 'THÊM MỚI' : 'CẬP NHẬT'),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            );
+          }
+        );
+      },
     );
   }
 
@@ -96,9 +130,10 @@ class _AdminScreenState extends State<AdminScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cập nhật trạng thái đơn hàng'),
+        title: const Text('Trạng thái đơn hàng'),
         content: DropdownButtonFormField<String>(
           value: selectedStatus,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
           items: ['Processing', 'Shipping', 'Delivered']
               .map((s) => DropdownMenuItem(value: s, child: Text(s)))
               .toList(),
@@ -130,15 +165,19 @@ class _AdminScreenState extends State<AdminScreen> {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Admin Dashboard'),
-          backgroundColor: Colors.redAccent,
-          bottom: const TabBar(
-            tabs: [
-              Tab(icon: Icon(Icons.inventory), text: 'Sản phẩm'),
-              Tab(icon: Icon(Icons.shopping_cart), text: 'Đơn hàng'),
-              Tab(icon: Icon(Icons.chat), text: 'Tin nhắn'),
+          title: const Text('Quản trị cửa hàng'),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 1,
+          bottom: TabBar(
+            tabs: const [
+              Tab(text: 'Sản phẩm'),
+              Tab(text: 'Đơn hàng'),
+              Tab(text: 'Chat'),
             ],
-            indicatorColor: Colors.white,
+            labelColor: Theme.of(context).primaryColor,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Theme.of(context).primaryColor,
           ),
           actions: [
             IconButton(icon: const Icon(Icons.logout), onPressed: () => Navigator.pushReplacementNamed(context, '/')),
@@ -146,26 +185,39 @@ class _AdminScreenState extends State<AdminScreen> {
         ),
         body: TabBarView(
           children: [
-            // --- TAB 1: QUẢN LÝ SẢN PHẨM ---
+            // --- TAB 1: SẢN PHẨM ---
             StreamBuilder<List<ProductModel>>(
               stream: _firebaseService.getProductsStream(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                 final products = snapshot.data!;
-                return ListView.builder(
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
                   itemCount: products.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final p = products[index];
-                    return ListTile(
-                      leading: Image.network(p.imageUrl, width: 40, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.image)),
-                      title: Text(p.name),
-                      subtitle: Text('Kho: ${p.stock} - Giá: ${currencyFormat.format(p.price)}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showProductForm(p)),
-                          IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _firebaseService.deleteProduct(p.idString!)),
-                        ],
+                    return Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
+                      ),
+                      child: ListTile(
+                        leading: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(p.imageUrl, width: 50, height: 50, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.image)),
+                        ),
+                        title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('Giá: ${currencyFormat.format(p.price)}\nKho: ${p.stock}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showProductForm(p)),
+                            IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _firebaseService.deleteProduct(p.idString!)),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -173,7 +225,7 @@ class _AdminScreenState extends State<AdminScreen> {
               },
             ),
 
-            // --- TAB 2: XỬ LÝ ĐƠN HÀNG ---
+            // --- TAB 2: ĐƠN HÀNG ---
             StreamBuilder<List<OrderModel>>(
               stream: _firebaseService.getAllOrdersStream(),
               builder: (context, snapshot) {
@@ -181,26 +233,54 @@ class _AdminScreenState extends State<AdminScreen> {
                 final orders = snapshot.data!;
                 if (orders.isEmpty) return const Center(child: Text('Chưa có đơn hàng nào.'));
                 return ListView.builder(
+                  padding: const EdgeInsets.all(16),
                   itemCount: orders.length,
                   itemBuilder: (context, index) {
                     final o = orders[index];
                     return Card(
-                      margin: const EdgeInsets.all(8),
-                      child: ListTile(
-                        title: Text(o.productName),
-                        subtitle: Column(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      elevation: 2,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Khách: ${o.customerName ?? "Chưa nhập"} - SDT: ${o.customerPhone ?? "Chưa nhập"}'),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(o.productName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: o.status == 'Delivered' ? Colors.green[100] : Colors.orange[100],
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(o.status, style: TextStyle(color: o.status == 'Delivered' ? Colors.green : Colors.orange, fontSize: 12)),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 24),
+                            Text('Khách: ${o.customerName ?? "Chưa nhập"}'),
+                            Text('SĐT: ${o.customerPhone ?? "Chưa nhập"}'),
                             Text('Địa chỉ: ${o.customerAddress ?? "Chưa nhập"}'),
-                            Text('SL: ${o.quantity} - Size: ${o.size ?? "N/A"}'),
-                            Text('Tổng: ${currencyFormat.format(o.price * o.quantity)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                            Text('Trạng thái: ${o.status}', style: const TextStyle(color: Colors.orange)),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('SL: ${o.quantity} - Size: ${o.size ?? "N/A"}'),
+                                Text(currencyFormat.format(o.price * o.quantity), style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton(
+                                onPressed: () => _showStatusDialog(o),
+                                child: const Text('CẬP NHẬT TRẠNG THÁI'),
+                              ),
+                            ),
                           ],
-                        ),
-                        trailing: ElevatedButton(
-                          onPressed: () => _showStatusDialog(o),
-                          child: const Text('Xử lý'),
                         ),
                       ),
                     );
@@ -209,79 +289,67 @@ class _AdminScreenState extends State<AdminScreen> {
               },
             ),
 
-            // --- TAB 3: QUẢN LÝ TIN NHẮN (Messenger Style) ---
-          StreamBuilder<List<Map<String, dynamic>>>(
-            stream: _firebaseService.getChatUsersStream(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-              final chatUsers = snapshot.data!;
-              if (chatUsers.isEmpty) return const Center(child: Text('Chưa có khách hàng nào nhắn tin.'));
+            // --- TAB 3: CHAT ---
+            StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _firebaseService.getChatUsersStream(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                final chatUsers = snapshot.data!;
+                if (chatUsers.isEmpty) return const Center(child: Text('Chưa có tin nhắn nào.'));
 
-              return ListView.builder(
-                itemCount: chatUsers.length,
-                itemBuilder: (context, index) {
-                  final chatData = chatUsers[index];
-                  final userId = chatData['userId'];
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: chatUsers.length,
+                  separatorBuilder: (_, __) => const Divider(),
+                  itemBuilder: (context, index) {
+                    final chatData = chatUsers[index];
+                    final userId = chatData['userId'];
 
-                  return StreamBuilder<DocumentSnapshot>(
-                    stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
-                    builder: (context, userSnapshot) {
-                      String displayName = 'Khách hàng';
-                      String? userImage;
-                      
-                      if (userSnapshot.hasData && userSnapshot.data!.exists) {
-                        final userData = userSnapshot.data!.data() as Map<String, dynamic>;
-                        displayName = userData['name'] ?? 'Khách hàng';
-                        userImage = userData['imageUrl'];
-                      }
+                    return StreamBuilder<DocumentSnapshot>(
+                      stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
+                      builder: (context, userSnapshot) {
+                        String displayName = 'Khách hàng';
+                        String? userImage;
+                        
+                        if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                          final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+                          displayName = userData['name'] ?? 'Khách hàng';
+                          userImage = userData['imageUrl'];
+                        }
 
-                      final String lastMsg = chatData['lastMessage'] ?? 'Nhấn để trả lời tin nhắn';
-
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundImage: (userImage != null && userImage.isNotEmpty)
-                              ? NetworkImage(userImage)
-                              : null,
-                          child: (userImage == null || userImage.isEmpty)
-                              ? const Icon(Icons.person)
-                              : null,
-                        ),
-                        title: Text(displayName),
-                        subtitle: Text(
-                          lastMsg,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ChatDetailScreen(
-                                userId: userId,
-                                userName: displayName,
-                                isAdmin: true,
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.grey[200],
+                            backgroundImage: (userImage != null && userImage.isNotEmpty) ? NetworkImage(userImage) : null,
+                            child: (userImage == null || userImage.isEmpty) ? const Icon(Icons.person) : null,
+                          ),
+                          title: Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(chatData['lastMessage'] ?? 'Nhấn để xem tin nhắn', maxLines: 1, overflow: TextOverflow.ellipsis),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatDetailScreen(
+                                  userId: userId,
+                                  userName: displayName,
+                                  isAdmin: true,
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          ),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
           ],
         ),
-        floatingActionButton: Builder(
-          builder: (context) {
-            return FloatingActionButton(
-              onPressed: () => _showProductForm(null),
-              backgroundColor: Colors.redAccent,
-              child: const Icon(Icons.add),
-            );
-          }
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => _showProductForm(null),
+          child: const Icon(Icons.add),
         ),
       ),
     );

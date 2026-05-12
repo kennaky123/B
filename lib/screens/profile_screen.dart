@@ -5,6 +5,13 @@ import '../database/firebase_service.dart';
 import '../models/order_model.dart';
 import 'map_screen.dart';
 
+/// Màn hình Tài khoản (ProfileScreen)
+/// Chức năng:
+/// - Hiển thị thông tin cá nhân (Ảnh đại diện, Tên, Email).
+/// - Chỉnh sửa thông tin cá nhân.
+/// - Xem lịch sử đơn hàng của bản thân.
+/// - Xem vị trí cửa hàng trên bản đồ.
+/// - Đăng xuất khỏi ứng dụng.
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -15,6 +22,8 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final FirebaseService _firebaseService = FirebaseService();
   final user = FirebaseAuth.instance.currentUser;
+  
+  // Các bộ điều khiển để sửa thông tin
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _imageUrlController = TextEditingController();
   bool _isUpdating = false;
@@ -25,6 +34,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserData();
   }
 
+  /// Tải dữ liệu người dùng hiện tại từ Firestore
   void _loadUserData() async {
     if (user != null) {
       final doc = await _firebaseService.getUserProfile(user!.uid);
@@ -37,12 +47,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  /// Lưu thông tin cá nhân sau khi chỉnh sửa
   void _saveProfile() async {
     setState(() => _isUpdating = true);
     try {
+      // 1. Cập nhật trong collection 'users'
       await _firebaseService.updateProfile(
           user!.uid, _nameController.text, _imageUrlController.text);
 
+      // 2. Cập nhật đồng bộ sang collection 'chats' để Admin thấy tên mới
       await FirebaseFirestore.instance.collection('chats').doc(user!.uid).set({
         'userName': _nameController.text,
         'userImage': _imageUrlController.text,
@@ -71,7 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // Header Profile
+            // Phần hiển thị Profile (Lắng nghe Stream để cập nhật ảnh/tên tức thì)
             StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance.collection('users').doc(user!.uid).snapshots(),
               builder: (context, snapshot) {
@@ -94,7 +107,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 32),
             
-            // Edit Profile Section
+            // Phần chỉnh sửa thông tin (ExpansionTile giúp thu gọn/mở rộng)
             ExpansionTile(
               title: const Text('Chỉnh sửa thông tin', style: TextStyle(fontWeight: FontWeight.bold)),
               leading: const Icon(Icons.edit_outlined),
@@ -128,7 +141,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             
             const Divider(),
             
-            // Actions
+            // Các nút chức năng khác
             ListTile(
               leading: const Icon(Icons.location_on_outlined),
               title: const Text('Địa chỉ cửa hàng (Map)'),
@@ -140,7 +153,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: const Text('Lịch sử đơn hàng'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
-                // Show a simple bottom sheet or navigate to an orders screen
+                // Hiển thị danh sách đơn hàng của người dùng trong một Bottom Sheet
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
@@ -182,11 +195,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
             ),
             const Divider(),
+            // Nút Đăng xuất
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
               title: const Text('Đăng xuất', style: TextStyle(color: Colors.red)),
               onTap: () {
                 FirebaseAuth.instance.signOut();
+                // Quay về màn hình Login (initialRoute '/')
                 Navigator.pushReplacementNamed(context, '/');
               },
             ),

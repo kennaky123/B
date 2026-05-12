@@ -5,6 +5,11 @@ import '../database/firebase_service.dart';
 import '../models/product_model.dart';
 import 'package:intl/intl.dart';
 
+/// Màn hình Thanh toán (CheckoutScreen)
+/// Chức năng:
+/// - Nhập thông tin người nhận (Tên, SĐT, Địa chỉ).
+/// - Xem lại tóm tắt đơn hàng và tổng tiền.
+/// - Xác nhận đặt toàn bộ sản phẩm trong giỏ hàng lên Firestore.
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
 
@@ -14,12 +19,17 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final _formKey = GlobalKey<FormState>();
+  
+  // Các bộ điều khiển nhập liệu thông tin giao hàng
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
   final _nameController = TextEditingController();
+  
   bool _isLoading = false;
 
+  /// Logic: Gửi đơn hàng
   void _submitOrder() async {
+    // 1. Kiểm tra xem người dùng đã nhập đủ thông tin chưa
     if (!_formKey.currentState!.validate()) return;
 
     final cart = Provider.of<CartProvider>(context, listen: false);
@@ -28,19 +38,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Trong thực tế, bạn có thể muốn tạo một bảng 'orders' phức tạp hơn 
-      // chứa danh sách sản phẩm. Ở đây mình sẽ duyệt qua giỏ hàng và đặt từng món.
+      // 2. Duyệt qua từng sản phẩm trong giỏ hàng để tạo đơn hàng trên Firestore
       for (var item in cart.items.values) {
-        // Tạo một ProductModel tạm thời từ CartItem để gọi placeOrder
+        // Tạo một ProductModel tạm thời (vì placeOrder yêu cầu model này để trừ kho)
         final product = ProductModel(
           idString: item.productId,
           name: item.name,
           price: item.price,
           description: '',
           imageUrl: item.imageUrl,
-          stock: 999, // Giả định kho đủ, hoặc bạn cần fetch lại stock thật
+          stock: 999, // Giả định kho đủ hàng
         );
         
+        // Gọi hàm placeOrder trong FirebaseService
         await firebaseService.placeOrder(
           product, 
           item.quantity, 
@@ -51,9 +61,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
       }
 
+      // 3. Sau khi đặt thành công, làm trống giỏ hàng
       cart.clear();
       if (!mounted) return;
       
+      // Hiển thị thông báo thành công
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -62,8 +74,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(ctx).pop();
-                Navigator.of(context).pop();
+                Navigator.of(ctx).pop(); // Đóng Dialog
+                Navigator.of(context).pop(); // Quay về màn hình Giỏ hàng (hoặc trang chủ)
               },
               child: const Text('Đồng ý'),
             )
@@ -118,6 +130,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   const Divider(height: 40),
                   const Text('Tóm tắt đơn hàng', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
+                  // Hiển thị danh sách các món đồ sẽ mua
                   ...cart.items.values.map((item) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4.0),
                     child: Row(
@@ -129,6 +142,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   )),
                   const Divider(),
+                  // Tổng tiền thanh toán
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -137,6 +151,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ],
                   ),
                   const SizedBox(height: 30),
+                  // Nút xác nhận cuối cùng
                   ElevatedButton(
                     onPressed: _submitOrder,
                     style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),

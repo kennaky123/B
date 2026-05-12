@@ -6,6 +6,11 @@ import 'admin_screen.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 
+/// Màn hình Đăng nhập (LoginScreen)
+/// Luồng điều hướng: 
+/// - Là màn hình khởi đầu (initialRoute).
+/// - Chuyển sang: MainNavigation (nếu là User) hoặc AdminScreen (nếu là Admin).
+/// - Có các nút điều hướng tới: SignUpScreen (Đăng ký), ForgotPasswordScreen (Quên mật khẩu).
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -14,14 +19,18 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _usernameController = TextEditingController();
+  // Bộ điều khiển nhập liệu
+  final TextEditingController _usernameController = TextEditingController(); // Thực chất là nhập Email
   final TextEditingController _passwordController = TextEditingController();
-  bool _isLoading = false;
+  
+  bool _isLoading = false; // Trạng thái hiển thị vòng xoay chờ
 
+  /// Hàm xử lý logic Đăng nhập
   void _login() async {
     String email = _usernameController.text.trim();
     String password = _passwordController.text.trim();
 
+    // Bước 1: Kiểm tra tính hợp lệ cơ bản
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vui lòng nhập đầy đủ thông tin')),
@@ -48,11 +57,12 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // 1. Đăng nhập bằng Firebase Auth
+      // Bước 2: Gọi Firebase Authentication để kiểm tra tài khoản
       UserCredential userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: email, password: password);
 
-      // 2. Lấy role từ Firestore (bảng users)
+      // Bước 3: Sau khi Auth thành công, truy cập Firestore để lấy 'role' (vai trò) của người dùng
+      // Thông tin role được lưu trong collection 'users' lúc người dùng đăng ký.
       DocumentSnapshot userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(userCredential.user!.uid)
@@ -61,18 +71,22 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       setState(() => _isLoading = false);
 
+      // Bước 4: Điều hướng dựa trên vai trò (Admin hoặc User)
       if (userDoc.exists && userDoc.get('role') == 'admin') {
+        // Nếu là Admin -> Chuyển đến màn hình Quản lý
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const AdminScreen()),
         );
       } else {
+        // Nếu là User bình thường -> Chuyển đến giao diện mua sắm chính
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const MainNavigation()),
         );
       }
     } on FirebaseAuthException catch (e) {
+      // Xử lý các lỗi đăng nhập phổ biến
       setState(() {
         _isLoading = false;
       });
@@ -114,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
             TextField(
               controller: _usernameController,
               decoration: const InputDecoration(
-                labelText: 'Tên đăng nhập',
+                labelText: 'Tên đăng nhập (Email)',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -127,6 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 border: OutlineInputBorder(),
               ),
             ),
+            // Nút Quên mật khẩu
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
@@ -140,12 +155,14 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            // Nút Đăng nhập hoặc Vòng quay chờ
             _isLoading
                 ? const CircularProgressIndicator()
                 : ElevatedButton(
                     onPressed: _login,
                     child: const Text('Đăng nhập'),
                   ),
+            // Nút chuyển hướng sang Đăng ký
             TextButton(
               onPressed: () {
                 Navigator.push(

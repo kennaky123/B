@@ -1,14 +1,15 @@
+/// ProductModel: Đại diện cho cấu trúc dữ liệu của một Sản phẩm
 class ProductModel {
-  final String? idString; 
-  final String name;
-  final double price;
-  final String description;
-  final String imageUrl; // Ảnh chính
-  final List<String> imageUrls; // Danh sách nhiều ảnh
-  final List<String> sizes; // Danh sách size (S, M, L, XL...)
-  final String status; 
-  final int stock; 
-  final String category; // Danh mục: Áo, Quần, Phụ kiện, Giày...
+  final String? idString;     // ID của tài liệu trên Firestore (Document ID)
+  final String name;          // Tên sản phẩm
+  final double price;         // Giá bán
+  final String description;   // Mô tả chi tiết
+  final String imageUrl;      // Đường dẫn ảnh đại diện chính
+  final List<String> imageUrls; // Danh sách các ảnh bổ sung (Carousel)
+  final List<String> sizes;    // Các kích thước có sẵn (S, M, L, XL...)
+  final String status;         // Trạng thái (Ví dụ: 'Active', 'Processing')
+  final int stock;             // Số lượng còn lại trong kho
+  final String category;       // Danh mục sản phẩm (Áo, Quần, Phụ kiện...)
 
   ProductModel({
     this.idString,
@@ -23,6 +24,7 @@ class ProductModel {
     this.category = 'Tất cả',
   });
 
+  /// Chuyển đổi đối tượng ProductModel thành Map để lưu lên Firestore
   Map<String, dynamic> toMap() {
     return {
       'name': name,
@@ -37,6 +39,7 @@ class ProductModel {
     };
   }
 
+  /// Khởi tạo đối tượng ProductModel từ dữ liệu tải về từ Firestore (Map)
   factory ProductModel.fromMap(Map<String, dynamic> map, {String? id}) {
     return ProductModel(
       idString: id,

@@ -6,6 +6,12 @@ import '../providers/cart_provider.dart';
 import '../widgets/product_card.dart';
 import 'cart_screen.dart';
 
+/// Màn hình Trang chủ (HomeScreen)
+/// Chức năng:
+/// - Hiển thị Banner khuyến mãi.
+/// - Hiển thị danh sách sản phẩm theo danh mục.
+/// - Cho phép lọc sản phẩm theo category (Áo, Quần, v.v.).
+/// - Nút đi tới giỏ hàng với biểu tượng thông báo số lượng sản phẩm.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -15,6 +21,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final FirebaseService _firebaseService = FirebaseService();
+  
+  // Trạng thái lọc danh mục
   String _selectedCategory = 'Tất cả';
   final List<String> _categories = ['Tất cả', 'Áo', 'Quần', 'Phụ kiện', 'Giày'];
 
@@ -24,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.grey[50],
       body: CustomScrollView(
         slivers: [
-          // Custom AppBar with Search and Cart
+          // AppBar tùy chỉnh (SliverAppBar) có hiệu ứng cuộn
           SliverAppBar(
             floating: true,
             pinned: true,
@@ -34,11 +42,13 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
             ),
             actions: [
+              // Nút Giỏ hàng kèm theo Badge số lượng
               Stack(
                 children: [
                   IconButton(
                     icon: const Icon(Icons.shopping_bag_outlined, color: Colors.black),
                     onPressed: () {
+                      // Chuyển sang màn hình Giỏ hàng
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const CartScreen()));
                     },
                   ),
@@ -46,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     right: 8,
                     top: 8,
                     child: Consumer<CartProvider>(
+                      // Lắng nghe sự thay đổi của CartProvider để cập nhật số lượng
                       builder: (_, cart, ch) => cart.itemCount > 0 
                         ? Container(
                             padding: const EdgeInsets.all(2),
@@ -69,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
 
-          // Promo Banner
+          // Banner quảng cáo / Khuyến mãi
           SliverToBoxAdapter(
             child: Container(
               height: 180,
@@ -103,15 +114,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
                         SizedBox(height: 16),
-                        // ElevatedButton(
-                        //   onPressed: () {},
-                        //   style: ElevatedButton.styleFrom(
-                        //     backgroundColor: Colors.white,
-                        //     foregroundColor: Colors.deepOrange,
-                        //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        //   ),
-                        //   child: const Text('Mua ngay'),
-                        // ),
                       ],
                     ),
                   ),
@@ -120,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Categories
+          // Thanh chọn Danh mục (Category Filter)
           SliverToBoxAdapter(
             child: SizedBox(
               height: 50,
@@ -157,7 +159,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SliverPadding(padding: EdgeInsets.symmetric(vertical: 8)),
 
-          // Product Grid
+          // Lưới sản phẩm (Product Grid) - Lấy dữ liệu từ Firestore
           StreamBuilder<List<ProductModel>>(
             stream: _firebaseService.getProductsStream(),
             builder: (context, snapshot) {
@@ -170,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
               } else {
                 var products = snapshot.data!;
                 
-                // Lọc theo category
+                // Logic lọc sản phẩm theo danh mục đã chọn
                 if (_selectedCategory != 'Tất cả') {
                   products = products.where((p) => p.category == _selectedCategory).toList();
                 }
@@ -190,6 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
+                        // Trả về Widget Card cho từng sản phẩm
                         return ProductCard(product: products[index]);
                       },
                       childCount: products.length,

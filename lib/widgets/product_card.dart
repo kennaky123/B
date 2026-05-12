@@ -3,15 +3,19 @@ import '../models/product_model.dart';
 import '../screens/product_detail_screen.dart';
 import 'package:intl/intl.dart';
 
+/// ProductCard: Widget hiển thị tóm tắt thông tin một sản phẩm (dạng thẻ)
+/// Thường dùng trong GridView hoặc ListView ở màn hình Trang chủ.
 class ProductCard extends StatelessWidget {
-  final ProductModel product;
+  final ProductModel product; // Dữ liệu sản phẩm truyền vào
   const ProductCard({super.key, required this.product});
 
   @override
   Widget build(BuildContext context) {
+    // Định dạng tiền tệ
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: 'VNĐ');
 
     return GestureDetector(
+      // Khi nhấn vào thẻ -> Chuyển đến màn hình Chi tiết sản phẩm
       onTap: () {
         Navigator.push(
           context,
@@ -35,10 +39,11 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image Section
+            // --- PHẦN HÌNH ẢNH ---
             Expanded(
               child: Stack(
                 children: [
+                  // Ảnh sản phẩm
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -49,6 +54,7 @@ class ProductCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // Hiển thị lớp phủ mờ nếu hết hàng
                   if (product.stock <= 0)
                     Container(
                       decoration: BoxDecoration(
@@ -62,6 +68,7 @@ class ProductCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  // Icon yêu thích (Trang trí)
                   Positioned(
                     top: 10,
                     right: 10,
@@ -77,19 +84,21 @@ class ProductCard extends StatelessWidget {
                 ],
               ),
             ),
-            // Info Section
+            // --- PHẦN THÔNG TIN ---
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Tên sản phẩm
                   Text(
                     product.name,
                     maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    overflow: TextOverflow.ellipsis, // Cắt ngắn nếu tên quá dài
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   const SizedBox(height: 4),
+                  // Giá sản phẩm
                   Text(
                     currencyFormat.format(product.price),
                     style: TextStyle(

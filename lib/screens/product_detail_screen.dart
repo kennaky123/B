@@ -6,6 +6,12 @@ import '../providers/cart_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+/// Màn hình Chi tiết sản phẩm (ProductDetailScreen)
+/// Chức năng:
+/// - Xem ảnh, mô tả, giá và trạng thái kho hàng.
+/// - Chọn size và số lượng.
+/// - Thêm vào giỏ hàng (CartProvider).
+/// - Mua ngay (Đặt hàng trực tiếp - Firestore).
 class ProductDetailScreen extends StatefulWidget {
   final ProductModel product;
   const ProductDetailScreen({super.key, required this.product});
@@ -15,19 +21,22 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  int _quantity = 1;
-  String? _selectedSize;
+  int _quantity = 1;      // Số lượng người dùng chọn
+  String? _selectedSize;  // Size người dùng chọn
   final FirebaseService _firebaseService = FirebaseService();
-  bool _isOrdering = false;
+  bool _isOrdering = false; // Trạng thái khi nhấn nút "Mua ngay"
 
   @override
   void initState() {
     super.initState();
+    // Mặc định chọn size đầu tiên nếu sản phẩm có danh sách size
     if (widget.product.sizes.isNotEmpty) {
       _selectedSize = widget.product.sizes.first;
     }
   }
 
+  /// Logic: Thêm vào giỏ hàng
+  /// Dữ liệu sẽ được lưu cục bộ trong CartProvider (Global State)
   void _addToCart() {
     Provider.of<CartProvider>(context, listen: false).addItem(
       widget.product,
@@ -44,11 +53,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+  /// Logic: Mua ngay (Đặt hàng trực tiếp)
+  /// Sẽ hiển thị một Bottom Sheet để người dùng nhập thông tin giao hàng
   void _placeOrder() async {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
     final addressController = TextEditingController();
 
+    // Thử lấy tên mặc định từ Profile nếu đã đăng nhập
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final doc = await _firebaseService.getUserProfile(user.uid);
@@ -62,6 +74,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     if (!mounted) return;
 
+    // Hiển thị khung nhập liệu
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -113,6 +126,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Navigator.pop(ctx);
                   setState(() => _isOrdering = true);
                   try {
+                    // Gọi FirebaseService để tạo bản ghi đơn hàng
                     await _firebaseService.placeOrder(
                       widget.product,
                       _quantity,
@@ -125,7 +139,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Đặt hàng thành công!'), backgroundColor: Colors.green),
                     );
-                    Navigator.pop(context);
+                    Navigator.pop(context); // Quay về trang chủ
                   } catch (e) {
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -147,12 +161,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Tổng hợp tất cả ảnh của sản phẩm
     final List<String> allImages = [widget.product.imageUrl, ...widget.product.imageUrls];
+    // Định dạng tiền tệ Việt Nam
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: 'VNĐ');
 
     return Scaffold(
       body: CustomScrollView(
         slivers: [
+          // Header là một Slider ảnh
           SliverAppBar(
             expandedHeight: 400,
             pinned: true,
@@ -176,6 +193,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Tên và Giá
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -192,12 +210,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
+                  // Tồn kho
                   Text(
                     'Trạng thái: ${widget.product.stock > 0 ? "Còn hàng (${widget.product.stock})" : "Hết hàng"}',
                     style: TextStyle(color: widget.product.stock > 0 ? Colors.green : Colors.red, fontWeight: FontWeight.w500),
                   ),
                   const Divider(height: 40),
                   
+                  // Chọn Size (nếu có)
                   if (widget.product.sizes.isNotEmpty) ...[
                     const Text('Chọn Size', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
@@ -219,6 +239,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     const SizedBox(height: 24),
                   ],
 
+                  // Mô tả
                   const Text('Mô tả sản phẩm', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Text(
@@ -227,6 +248,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   const SizedBox(height: 24),
                   
+                  // Chọn số lượng
                   Row(
                     children: [
                       const Text('Số lượng', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -250,13 +272,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 100), // Space for bottom bar
+                  const SizedBox(height: 100), // Khoảng trống để không bị nút đè lên
                 ],
               ),
             ),
           ),
         ],
       ),
+      // Thanh công cụ mua hàng ở dưới cùng
       bottomSheet: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -267,6 +290,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
         child: Row(
           children: [
+            // Nút Thêm vào giỏ
             Container(
               decoration: BoxDecoration(
                 border: Border.all(color: Theme.of(context).primaryColor),
@@ -278,6 +302,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
             const SizedBox(width: 16),
+            // Nút Mua ngay
             Expanded(
               child: SizedBox(
                 height: 50,

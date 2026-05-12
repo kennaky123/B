@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+/// Màn hình Bản đồ (MapScreen)
+/// Chức năng:
+/// - Hiển thị địa chỉ thực của cửa hàng.
+/// - Cho phép mở ứng dụng bản đồ bên thứ ba (Google Maps, Apple Maps) để dẫn đường.
 class MapScreen extends StatelessWidget {
   const MapScreen({super.key});
 
-  // Bạn hãy thay địa chỉ thật của Shop bạn vào đây
+  // Địa chỉ của Shop
   final String _shopAddress = "470 Trần Đại Nghĩa, Ngũ Hành Sơn, Đà Nẵng 550000, Việt Nam";
 
+  /// Logic: Mở ứng dụng Bản đồ trên thiết bị
   Future<void> _openGoogleMaps() async {
-    // Dùng geo: để Android mở trực tiếp ứng dụng bản đồ mặc định
+    // 1. Cố gắng mở trực tiếp ứng dụng bản đồ bằng giao thức 'geo:'
     final String googleMapsUrl = "geo:0,0?q=${Uri.encodeComponent(_shopAddress)}";
     final Uri url = Uri.parse(googleMapsUrl);
     
@@ -16,7 +21,7 @@ class MapScreen extends StatelessWidget {
       if (await canLaunchUrl(url)) {
         await launchUrl(url);
       } else {
-        // Nếu không mở được bằng link hệ thống, dùng link web thông thường
+        // 2. Nếu không mở được app (ví dụ trên trình duyệt), mở bằng link web Google Maps
         final String webUrl = "https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(_shopAddress)}";
         await launchUrl(Uri.parse(webUrl), mode: LaunchMode.externalApplication);
       }

@@ -6,6 +6,11 @@ import '../models/order_model.dart';
 import 'package:intl/intl.dart';
 import 'chat_detail_screen.dart';
 
+/// Màn hình Quản trị (AdminScreen)
+/// Chức năng dành cho người quản lý:
+/// - Quản lý Sản phẩm (Thêm, Sửa, Xóa).
+/// - Quản lý Đơn hàng (Xem danh sách, Cập nhật trạng thái giao hàng).
+/// - Quản lý Tin nhắn (Chat với khách hàng).
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
 
@@ -17,6 +22,7 @@ class _AdminScreenState extends State<AdminScreen> {
   final FirebaseService _firebaseService = FirebaseService();
   final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: 'VNĐ');
 
+  /// Hiển thị Form để Thêm mới hoặc Cập nhật sản phẩm
   void _showProductForm(ProductModel? product) {
     final nameController = TextEditingController();
     final priceController = TextEditingController();
@@ -29,6 +35,7 @@ class _AdminScreenState extends State<AdminScreen> {
 
     final categories = ['Áo', 'Quần', 'Phụ kiện', 'Giày'];
 
+    // Nếu là cập nhật, điền sẵn thông tin cũ vào các ô nhập
     if (product != null) {
       nameController.text = product.name;
       priceController.text = product.price.toString();
@@ -39,7 +46,7 @@ class _AdminScreenState extends State<AdminScreen> {
       stockController.text = product.stock.toString();
       selectedCategory = categories.contains(product.category) ? product.category : 'Áo';
     } else {
-      stockController.text = "100";
+      stockController.text = "100"; // Mặc định kho có 100 sản phẩm khi thêm mới
     }
 
     showModalBottomSheet(
@@ -47,7 +54,7 @@ class _AdminScreenState extends State<AdminScreen> {
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
-        return StatefulBuilder( // Dùng StatefulBuilder để cập nhật Dropdown trong BottomSheet
+        return StatefulBuilder(
           builder: (context, setModalState) {
             return Padding(
               padding: EdgeInsets.only(
@@ -92,6 +99,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       height: 50,
                       child: ElevatedButton(
                         onPressed: () async {
+                          // Tạo đối tượng model từ dữ liệu nhập vào
                           final p = ProductModel(
                             idString: product?.idString,
                             name: nameController.text,
@@ -103,6 +111,7 @@ class _AdminScreenState extends State<AdminScreen> {
                             stock: int.tryParse(stockController.text) ?? 100,
                             category: selectedCategory,
                           );
+                          // Gọi Firebase để lưu dữ liệu
                           if (product == null) {
                             await _firebaseService.addProduct(p);
                           } else {
@@ -125,6 +134,7 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
+  /// Hiển thị hộp thoại để Admin đổi trạng thái đơn hàng (Đang xử lý -> Đang giao -> Đã giao)
   void _showStatusDialog(OrderModel order) {
     String selectedStatus = order.status;
     showDialog(
@@ -143,6 +153,7 @@ class _AdminScreenState extends State<AdminScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
           ElevatedButton(
             onPressed: () async {
+              // Cập nhật trạng thái và gửi thông báo cho User
               await _firebaseService.updateOrderStatus(
                 order.id!, 
                 selectedStatus,
@@ -180,12 +191,13 @@ class _AdminScreenState extends State<AdminScreen> {
             indicatorColor: Theme.of(context).primaryColor,
           ),
           actions: [
+            // Đăng xuất Admin
             IconButton(icon: const Icon(Icons.logout), onPressed: () => Navigator.pushReplacementNamed(context, '/')),
           ],
         ),
         body: TabBarView(
           children: [
-            // --- TAB 1: SẢN PHẨM ---
+            // --- TAB 1: QUẢN LÝ SẢN PHẨM ---
             StreamBuilder<List<ProductModel>>(
               stream: _firebaseService.getProductsStream(),
               builder: (context, snapshot) {
@@ -225,7 +237,7 @@ class _AdminScreenState extends State<AdminScreen> {
               },
             ),
 
-            // --- TAB 2: ĐƠN HÀNG ---
+            // --- TAB 2: QUẢN LÝ ĐƠN HÀNG ---
             StreamBuilder<List<OrderModel>>(
               stream: _firebaseService.getAllOrdersStream(),
               builder: (context, snapshot) {
@@ -289,7 +301,7 @@ class _AdminScreenState extends State<AdminScreen> {
               },
             ),
 
-            // --- TAB 3: CHAT ---
+            // --- TAB 3: QUẢN LÝ TIN NHẮN (LIST CHAT) ---
             StreamBuilder<List<Map<String, dynamic>>>(
               stream: _firebaseService.getChatUsersStream(),
               builder: (context, snapshot) {
@@ -305,6 +317,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     final chatData = chatUsers[index];
                     final userId = chatData['userId'];
 
+                    // Lấy tên/ảnh User từ Firestore
                     return StreamBuilder<DocumentSnapshot>(
                       stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
                       builder: (context, userSnapshot) {
@@ -327,6 +340,7 @@ class _AdminScreenState extends State<AdminScreen> {
                           subtitle: Text(chatData['lastMessage'] ?? 'Nhấn để xem tin nhắn', maxLines: 1, overflow: TextOverflow.ellipsis),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () {
+                            // Mở màn hình chat chi tiết với User này
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -347,6 +361,7 @@ class _AdminScreenState extends State<AdminScreen> {
             ),
           ],
         ),
+        // Nút tròn để thêm sản phẩm mới nhanh
         floatingActionButton: FloatingActionButton(
           onPressed: () => _showProductForm(null),
           child: const Icon(Icons.add),

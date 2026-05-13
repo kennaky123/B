@@ -5,6 +5,7 @@ import '../models/product_model.dart';
 import '../models/order_model.dart';
 import 'package:intl/intl.dart';
 import 'chat_detail_screen.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 
 /// Màn hình Quản trị (AdminScreen)
 /// Chức năng dành cho người quản lý:
@@ -170,10 +171,62 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
+  /// Hiển thị Form tạo mã giảm giá mới
+  void _showCouponForm() {
+    final codeController = TextEditingController();
+    final percentController = TextEditingController();
+    final usageController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tạo mã giảm giá'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: codeController,
+              decoration: const InputDecoration(labelText: 'Mã (VD: GIAM20)', border: OutlineInputBorder()),
+              textCapitalization: TextCapitalization.characters,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: percentController,
+              decoration: const InputDecoration(labelText: 'Phần trăm giảm (%)', border: OutlineInputBorder()),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: usageController,
+              decoration: const InputDecoration(labelText: 'Số lần sử dụng tối đa', border: OutlineInputBorder()),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () async {
+              if (codeController.text.isEmpty || percentController.text.isEmpty || usageController.text.isEmpty) return;
+              await _firebaseService.addCoupon(
+                codeController.text.trim(),
+                double.tryParse(percentController.text) ?? 0,
+                int.tryParse(usageController.text) ?? 10,
+              );
+              if (!mounted) return;
+              Navigator.pop(ctx);
+            },
+            child: const Text('TẠO MÃ'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Quản trị cửa hàng'),
@@ -185,6 +238,8 @@ class _AdminScreenState extends State<AdminScreen> {
               Tab(text: 'Sản phẩm'),
               Tab(text: 'Đơn hàng'),
               Tab(text: 'Chat'),
+              Tab(text: 'Đánh giá'),
+              Tab(text: 'Coupon'),
             ],
             labelColor: Theme.of(context).primaryColor,
             unselectedLabelColor: Colors.grey,
@@ -261,7 +316,16 @@ class _AdminScreenState extends State<AdminScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(o.productName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                // Sử dụng Expanded để tên sản phẩm tự xuống dòng nếu quá dài, tránh lỗi tràn màn hình (Overflow)
+                                Expanded(
+                                  child: Text(
+                                    o.productName, 
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
@@ -269,6 +333,31 @@ class _AdminScreenState extends State<AdminScreen> {
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(o.status, style: TextStyle(color: o.status == 'Delivered' ? Colors.green : Colors.orange, fontSize: 12)),
+                                ),
+                                const SizedBox(width: 8),
+                                // Thêm nút xóa đơn hàng dành cho Admin
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('Xóa đơn hàng?'),
+                                        content: const Text('Bạn có chắc chắn muốn xóa đơn hàng này khỏi hệ thống?'),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('HỦY')),
+                                          TextButton(
+                                            onPressed: () async {
+                                              await _firebaseService.deleteOrder(o.id!, o.userId, o.productName);
+                                              if (!mounted) return;
+                                              Navigator.pop(ctx);
+                                            },
+                                            child: const Text('XÓA', style: TextStyle(color: Colors.red)),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -280,8 +369,13 @@ class _AdminScreenState extends State<AdminScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('SL: ${o.quantity} - Size: ${o.size ?? "N/A"}'),
-                                Text(currencyFormat.format(o.price * o.quantity), style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
+                                Expanded(
+                                  child: Text('SL: ${o.quantity} - Size: ${o.size ?? "N/A"}'),
+                                ),
+                                Text(
+                                  currencyFormat.format(o.price * o.quantity), 
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)
+                                ),
                               ],
                             ),
                             const SizedBox(height: 16),
@@ -358,6 +452,162 @@ class _AdminScreenState extends State<AdminScreen> {
                   },
                 );
               },
+            ),
+
+            // --- TAB 4: QUẢN LÝ ĐÁNH GIÁ (REVIEWS) ---
+            StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _firebaseService.getAllReviewsStream(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                final reviews = snapshot.data!;
+                if (reviews.isEmpty) return const Center(child: Text('Chưa có đánh giá nào.'));
+
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: reviews.length,
+                  separatorBuilder: (_, __) => const Divider(),
+                  itemBuilder: (context, index) {
+                    final r = reviews[index];
+                    final bool isApproved = r['isApproved'] ?? false;
+
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isApproved ? Colors.green[50] : Colors.orange[50],
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              backgroundImage: (r['userImage'] != null && r['userImage'].toString().isNotEmpty) 
+                                ? NetworkImage(r['userImage']) : null,
+                              child: (r['userImage'] == null || r['userImage'].toString().isEmpty) 
+                                ? const Icon(Icons.person) : null,
+                            ),
+                            title: Text(r['userName'] ?? 'Khách hàng', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            // Wrap subtitle in Expanded if needed, but ListTile handles this usually. 
+                            // Thêm subtitle để hiển thị tên sản phẩm thay vì chỉ ID
+                            subtitle: Text('SP: ${r['productId']}', overflow: TextOverflow.ellipsis),
+                            trailing: Container(
+                              constraints: const BoxConstraints(maxWidth: 80),
+                              child: Text(
+                                isApproved ? 'ĐÃ DUYỆT' : 'CHỜ DUYỆT',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(color: isApproved ? Colors.green : Colors.orange, fontWeight: FontWeight.bold, fontSize: 10),
+                              ),
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              RatingBarIndicator(
+                                rating: (r['rating'] ?? 0).toDouble(),
+                                itemBuilder: (context, index) => const Icon(Icons.star, color: Colors.amber),
+                                itemCount: 5,
+                                itemSize: 20.0,
+                              ),
+                              const Spacer(),
+                              Text(
+                                (r['timestamp'] != null) 
+                                  ? (r['timestamp'] as Timestamp).toDate().toString().substring(0, 16)
+                                  : '',
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(r['comment'] ?? '', style: const TextStyle(fontSize: 15)),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              // Nút Duyệt / Hủy duyệt
+                              ElevatedButton(
+                                onPressed: () => _firebaseService.updateReviewApproval(r['id'], !isApproved),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: isApproved ? Colors.orange : Colors.green,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: Text(isApproved ? 'GỠ BỎ (HỦY DUYỆT)' : 'PHÊ DUYỆT'),
+                              ),
+                              const SizedBox(width: 8),
+                              // Nút Xóa vĩnh viễn
+                              IconButton(
+                                icon: const Icon(Icons.delete_forever, color: Colors.red),
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Xác nhận xóa'),
+                                      content: const Text('Bạn có chắc chắn muốn xóa đánh giá này không?'),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                                        TextButton(
+                                          onPressed: () {
+                                            _firebaseService.deleteReview(r['id']);
+                                            Navigator.pop(ctx);
+                                          },
+                                          child: const Text('XÓA', style: TextStyle(color: Colors.red)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+
+            // --- TAB 5: QUẢN LÝ MÃ GIẢM GIÁ (COUPONS) ---
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _showCouponForm,
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: const Text('TẠO MÃ GIẢM GIÁ MỚI'),
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: _firebaseService.getCouponsStream(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                        final coupons = snapshot.data!;
+                        if (coupons.isEmpty) return const Center(child: Text('Chưa có mã giảm giá nào.'));
+
+                        return ListView.builder(
+                          itemCount: coupons.length,
+                          itemBuilder: (context, index) {
+                            final c = coupons[index];
+                            final bool isActive = c['isActive'] ?? true;
+
+                            return Card(
+                              child: ListTile(
+                                title: Text(c['code'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                                subtitle: Text('Giảm: ${c['discountPercent']}% - Dùng: ${c['usedCount']}/${c['maxUsage']}'),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () => _firebaseService.deleteCoupon(c['id']),
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

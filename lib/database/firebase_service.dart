@@ -107,6 +107,52 @@ class FirebaseService {
     });
   }
 
+  /// Hủy đơn hàng (Dành cho User)
+  /// - Cập nhật trạng thái thành 'Cancelled'
+  /// - Cộng lại số lượng vào kho sản phẩm
+  /// - Gửi thông báo xác nhận cho User
+  Future<void> cancelOrder(OrderModel order) async {
+    if (order.id == null) return;
+
+    // 1. Cập nhật trạng thái đơn hàng
+    await ordersRef.doc(order.id).update({'status': 'Cancelled'});
+
+    // 2. Hoàn trả số lượng vào kho (Stock)
+    DocumentSnapshot productDoc = await productsRef.doc(order.productId).get();
+    if (productDoc.exists) {
+      int currentStock = productDoc.get('stock') ?? 0;
+      await productsRef.doc(order.productId).update({
+        'stock': currentStock + order.quantity,
+      });
+    }
+
+    // 3. Tạo thông báo cho người dùng
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': order.userId,
+      'title': 'Đã hủy đơn hàng',
+      'body': "Bạn đã hủy thành công đơn hàng '${order.productName}'.",
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Xóa đơn hàng (Dành cho User - Xóa khỏi lịch sử)
+  Future<void> deleteOrder(String orderId, String userId, String productName) async {
+    await ordersRef.doc(orderId).delete();
+
+    // Thông báo xóa thành công
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': userId,
+      'title': 'Đã xóa đơn hàng',
+      'body': "Đơn hàng '$productName' đã được xóa khỏi lịch sử của bạn.",
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Xóa thông báo (Dành cho User)
+  Future<void> deleteNotification(String notificationId) {
+    return FirebaseFirestore.instance.collection('notifications').doc(notificationId).delete();
+  }
+
   /// Lấy danh sách đơn hàng của một người dùng cụ thể
   Stream<List<OrderModel>> getUserOrders(String userId) {
     return ordersRef
@@ -162,6 +208,108 @@ class FirebaseService {
       'senderId': 'admin', // Đánh dấu là tin nhắn của Admin
       'text': text,
       'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ===================== ĐÁNH GIÁ (REVIEWS) =====================
+
+  /// Gửi đánh giá mới (Mặc định isApproved = false)
+  Future<void> addReview(String productId, String userId, String userName, String? userImage, String comment, double rating) {
+    return FirebaseFirestore.instance.collection('reviews').add({
+      'productId': productId,
+      'userId': userId,
+      'userName': userName,
+      'userImage': userImage,
+      'comment': comment,
+      'rating': rating,
+      'isApproved': false, // Cần admin duyệt mới hiển thị
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Lấy danh sách đánh giá đã được duyệt của một sản phẩm
+  Stream<List<Map<String, dynamic>>> getApprovedReviews(String productId) {
+    return FirebaseFirestore.instance
+        .collection('reviews')
+        .where('productId', isEqualTo: productId)
+        .where('isApproved', isEqualTo: true)
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList());
+  }
+
+  /// Lấy tất cả đánh giá (Dành cho Admin quản lý)
+  Stream<List<Map<String, dynamic>>> getAllReviewsStream() {
+    return FirebaseFirestore.instance
+        .collection('reviews')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList());
+  }
+
+  /// Cập nhật trạng thái duyệt của đánh giá
+  Future<void> updateReviewApproval(String reviewId, bool isApproved) {
+    return FirebaseFirestore.instance.collection('reviews').doc(reviewId).update({
+      'isApproved': isApproved,
+    });
+  }
+
+  /// Xóa đánh giá
+  Future<void> deleteReview(String reviewId) {
+    return FirebaseFirestore.instance.collection('reviews').doc(reviewId).delete();
+  }
+
+  // ===================== MÃ GIẢM GIÁ (COUPONS) =====================
+
+  /// Thêm mã giảm giá mới với số lần sử dụng tối đa
+  Future<void> addCoupon(String code, double percent, int maxUsage) {
+    return FirebaseFirestore.instance.collection('coupons').add({
+      'code': code.toUpperCase(),
+      'discountPercent': percent,
+      'maxUsage': maxUsage,
+      'usedCount': 0, // Mới tạo thì chưa ai dùng
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Lấy danh sách mã giảm giá (Dành cho Admin)
+  Stream<List<Map<String, dynamic>>> getCouponsStream() {
+    return FirebaseFirestore.instance
+        .collection('coupons')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList());
+  }
+
+  /// Xóa mã giảm giá
+  Future<void> deleteCoupon(String couponId) {
+    return FirebaseFirestore.instance.collection('coupons').doc(couponId).delete();
+  }
+
+  /// Kiểm tra mã giảm giá (Dành cho User)
+  /// Điều kiện: Mã tồn tại và UsedCount < MaxUsage
+  Future<Map<String, dynamic>?> validateCoupon(String code) async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('coupons')
+        .where('code', isEqualTo: code.toUpperCase())
+        .get();
+
+    if (snapshot.docs.isEmpty) return null;
+    
+    final data = snapshot.docs.first.data();
+    int maxUsage = data['maxUsage'] ?? 0;
+    int usedCount = data['usedCount'] ?? 0;
+
+    // Nếu số lần dùng đã đạt tối đa thì mã không hợp lệ
+    if (usedCount >= maxUsage) return null;
+
+    return {...data, 'id': snapshot.docs.first.id};
+  }
+
+  /// Cập nhật số lần đã sử dụng của mã (+1 sau mỗi lần đặt hàng thành công)
+  Future<void> incrementCouponUsage(String couponId) {
+    return FirebaseFirestore.instance.collection('coupons').doc(couponId).update({
+      'usedCount': FieldValue.increment(1),
     });
   }
 }

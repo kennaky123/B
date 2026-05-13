@@ -78,8 +78,18 @@ class CartScreen extends StatelessWidget {
                               errorBuilder: (c, e, s) => const Icon(Icons.shopping_bag),
                             ),
                             title: Text(item.name),
-                            subtitle: Text('Giá: ${currencyFormat.format(item.price)}\nSize: ${item.size ?? "N/A"}'),
-                            trailing: Text('x ${item.quantity}'),
+                            subtitle: Text('Đơn giá: ${currencyFormat.format(item.price)}\nSize: ${item.size ?? "N/A"}'),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text('x ${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text(
+                                  currencyFormat.format(item.price * item.quantity), // Hiển thị tổng tiền cho mục này
+                                  style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12),
+                                ),
+                              ],
+                            ),
                             onLongPress: () {
                               // Nhấn giữ để xóa sản phẩm khỏi giỏ hàng
                               cart.removeItem(item.productId, item.size);

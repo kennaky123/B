@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../database/firebase_service.dart';
 import '../models/order_model.dart';
 import 'map_screen.dart';
+import 'package:intl/intl.dart';
 
 /// Màn hình Tài khoản (ProfileScreen)
 /// Chức năng:
@@ -22,6 +23,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final FirebaseService _firebaseService = FirebaseService();
   final user = FirebaseAuth.instance.currentUser;
+  final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: 'VNĐ');
   
   // Các bộ điều khiển để sửa thông tin
   final TextEditingController _nameController = TextEditingController();
@@ -70,6 +72,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } finally {
       if (mounted) setState(() => _isUpdating = false);
     }
+  }
+
+  /// Xác nhận hủy đơn hàng
+  void _confirmCancelOrder(OrderModel order) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hủy đơn hàng?'),
+        content: const Text('Bạn có chắc chắn muốn hủy đơn hàng này không? Số lượng sản phẩm sẽ được hoàn lại vào kho.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('KHÔNG')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _firebaseService.cancelOrder(order);
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Đã hủy đơn hàng thành công'), backgroundColor: Colors.orange),
+              );
+            },
+            child: const Text('HỦY NGAY', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Xác nhận xóa đơn hàng khỏi lịch sử
+  void _confirmDeleteOrder(OrderModel order) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xóa lịch sử đơn hàng?'),
+        content: const Text('Hành động này sẽ xóa đơn hàng khỏi danh sách của bạn.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('HỦY')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _firebaseService.deleteOrder(order.id!, user!.uid, order.productName);
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Đã xóa đơn hàng khỏi lịch sử')),
+              );
+            },
+            child: const Text('XÓA', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -179,8 +231,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   return Card(
                                     child: ListTile(
                                       title: Text(order.productName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      subtitle: Text('SL: ${order.quantity} - Trạng thái: ${order.status}'),
-                                      trailing: Text('${order.price * order.quantity}đ', style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                                      subtitle: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('SL: ${order.quantity} - Trạng thái: ${order.status}'),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              // Nút Hủy đơn: Chỉ hiện khi đang xử lý (Processing)
+                                              if (order.status == 'Processing')
+                                                TextButton.icon(
+                                                  onPressed: () => _confirmCancelOrder(order),
+                                                  icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.red),
+                                                  label: const Text('HỦY ĐƠN', style: TextStyle(color: Colors.red, fontSize: 12)),
+                                                ),
+                                              // Nút Xóa: Chỉ hiện khi đã giao hoặc đã hủy
+                                              if (order.status == 'Cancelled' || order.status == 'Delivered')
+                                                TextButton.icon(
+                                                  onPressed: () => _confirmDeleteOrder(order),
+                                                  icon: const Icon(Icons.delete_outline, size: 16, color: Colors.grey),
+                                                  label: const Text('XÓA', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                      trailing: Text(
+                                        currencyFormat.format(order.price * order.quantity), // Tính tổng tiền: đơn giá * số lượng
+                                        style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)
+                                      ),
                                     ),
                                   );
                                 },

@@ -75,7 +75,7 @@ class FirebaseService {
   /// Đặt hàng mới
   /// - Tạo bản ghi đơn hàng
   /// - Trừ số lượng tồn kho của sản phẩm
-  Future<void> placeOrder(ProductModel product, int quantity, String? size, {String? customerName, String? customerPhone, String? customerAddress}) async {
+  Future<void> placeOrder(ProductModel product, int quantity, String? size, {String? customerName, String? customerPhone, String? customerAddress, String status = 'Processing'}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return Future.error("Chưa đăng nhập");
     
@@ -94,7 +94,7 @@ class FirebaseService {
       customerAddress: customerAddress,
       price: product.price,
       quantity: quantity,
-      status: 'Processing',
+      status: status,
       timestamp: DateTime.now(),
     );
 

@@ -4,6 +4,7 @@ import '../providers/cart_provider.dart';
 import '../database/firebase_service.dart';
 import '../models/product_model.dart';
 import 'package:intl/intl.dart';
+import 'payment_screen.dart';
 
 /// Màn hình Thanh toán (CheckoutScreen)
 /// Chức năng:
@@ -31,8 +32,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String? _appliedCouponCode;
   String? _appliedCouponId; // Thêm ID mã
 
-  bool _isLoading = false;
-
   /// Logic: Kiểm tra mã giảm giá
   void _applyCoupon() async {
     if (_couponController.text.isEmpty) return;
@@ -56,76 +55,44 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  /// Logic: Gửi đơn hàng
-  void _submitOrder() async {
+  /// Logic: Chuyển sang màn hình thanh toán QR
+  void _goToPayment() {
     // 1. Kiểm tra xem người dùng đã nhập đủ thông tin chưa
     if (!_formKey.currentState!.validate()) return;
 
     final cart = Provider.of<CartProvider>(context, listen: false);
-    final firebaseService = FirebaseService();
+    double discountFactor = (100 - _discountPercent) / 100;
+    double totalAmount = cart.totalAmount * discountFactor;
 
-    setState(() => _isLoading = true);
+    // Chuẩn bị danh sách sản phẩm với giá đã giảm (nếu có)
+    List<CartItem> discountedItems = cart.items.values.map((item) {
+      return CartItem(
+        id: item.id,
+        productId: item.productId,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price * discountFactor,
+        imageUrl: item.imageUrl,
+        size: item.size,
+      );
+    }).toList();
 
-    try {
-      // Tính toán giá sau khi giảm cho từng sản phẩm (nếu có coupon)
-      double discountFactor = (100 - _discountPercent) / 100;
-
-      // 2. Duyệt qua từng sản phẩm trong giỏ hàng để tạo đơn hàng trên Firestore
-      for (var item in cart.items.values) {
-        // Tạo một ProductModel tạm thời
-        final product = ProductModel(
-          idString: item.productId,
-          name: item.name,
-          price: item.price * discountFactor, // Giá đã áp dụng giảm giá
-          description: '',
-          imageUrl: item.imageUrl,
-          stock: 999,
-        );
-        
-        // Gọi hàm placeOrder trong FirebaseService
-        await firebaseService.placeOrder(
-          product, 
-          item.quantity, 
-          item.size,
-          customerName: _nameController.text.trim(),
-          customerPhone: _phoneController.text.trim(),
-          customerAddress: _addressController.text.trim(),
-        );
-      }
-
-      // 3. Cập nhật số lần dùng mã giảm giá
-      if (_appliedCouponId != null) {
-        await firebaseService.incrementCouponUsage(_appliedCouponId!);
-      }
-
-      // 4. Sau khi đặt thành công, làm trống giỏ hàng
-      cart.clear();
-      if (!mounted) return;
-      
-      // Hiển thị thông báo thành công
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Thành công!'),
-          content: const Text('Đơn hàng của bạn đã được tiếp nhận.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop(); // Đóng Dialog
-                Navigator.of(context).pop(); // Quay về màn hình Giỏ hàng (hoặc trang chủ)
-              },
-              child: const Text('Đồng ý'),
-            )
-          ],
+    // Điều hướng sang màn hình Thanh toán QR
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PaymentScreen(
+          amount: totalAmount,
+          customerInfo: {
+            'name': _nameController.text.trim(),
+            'phone': _phoneController.text.trim(),
+            'address': _addressController.text.trim(),
+          },
+          cartItems: discountedItems,
+          appliedCouponId: _appliedCouponId,
+          clearCartOnSuccess: true, // Chỉ xóa giỏ hàng khi thanh toán từ Cart
         ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+      ),
+    );
   }
 
   @override
@@ -135,9 +102,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Thanh toán')),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
-        : Padding(
+      body: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Form(
               key: _formKey,
@@ -262,9 +227,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   const SizedBox(height: 30),
                   // Nút xác nhận cuối cùng
                   ElevatedButton(
-                    onPressed: _submitOrder,
-                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                    child: const Text('XÁC NHẬN ĐẶT HÀNG'),
+                    onPressed: _goToPayment,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.blue[700],
+                    ),
+                    child: const Text(
+                      'TIẾP TỤC THANH TOÁN',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ],
               ),

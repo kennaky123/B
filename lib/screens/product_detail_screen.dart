@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'payment_screen.dart';
 
 /// Màn hình Chi tiết sản phẩm (ProductDetailScreen)
 /// Chức năng:
@@ -273,7 +274,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: () async {
+                      onPressed: () {
                         if (nameController.text.isEmpty ||
                             phoneController.text.isEmpty ||
                             addressController.text.isEmpty) {
@@ -284,48 +285,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         }
                         
                         Navigator.pop(ctx);
-                        setState(() => _isOrdering = true);
-                        try {
-                          // Tạo bản sao sản phẩm với giá đã giảm để lưu vào đơn hàng
-                          final discountedProduct = ProductModel(
-                            idString: widget.product.idString,
-                            name: widget.product.name,
-                            price: widget.product.price * (100 - discountPercent) / 100,
-                            description: widget.product.description,
-                            imageUrl: widget.product.imageUrl,
-                            stock: widget.product.stock,
-                          );
 
-                          // Gọi FirebaseService để tạo bản ghi đơn hàng
-                          await _firebaseService.placeOrder(
-                            discountedProduct,
-                            _quantity,
-                            _selectedSize,
-                            customerName: nameController.text.trim(),
-                            customerPhone: phoneController.text.trim(),
-                            customerAddress: addressController.text.trim(),
-                          );
+                        // Tạo danh sách CartItem giả lập cho 1 sản phẩm "Mua ngay"
+                        final buyNowItem = CartItem(
+                          id: DateTime.now().toString(),
+                          productId: widget.product.idString!,
+                          name: widget.product.name,
+                          quantity: _quantity,
+                          price: widget.product.price * (100 - discountPercent) / 100,
+                          imageUrl: widget.product.imageUrl,
+                          size: _selectedSize,
+                        );
 
-                          // Cập nhật số lần dùng mã
-                          if (appliedCouponId != null) {
-                            await _firebaseService.incrementCouponUsage(appliedCouponId!);
-                          }
-
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Đặt hàng thành công!'), backgroundColor: Colors.green),
-                          );
-                          Navigator.pop(context); // Quay về trang chủ
-                        } catch (e) {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Lỗi: $e')),
-                          );
-                        } finally {
-                          if (mounted) setState(() => _isOrdering = false);
-                        }
+                        // Chuyển sang màn hình Thanh toán QR
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PaymentScreen(
+                              amount: finalPrice,
+                              customerInfo: {
+                                'name': nameController.text.trim(),
+                                'phone': phoneController.text.trim(),
+                                'address': addressController.text.trim(),
+                              },
+                              cartItems: [buyNowItem],
+                              appliedCouponId: appliedCouponId,
+                            ),
+                          ),
+                        );
                       },
-                      child: const Text('XÁC NHẬN ĐẶT HÀNG'),
+                      child: const Text('TIẾP TỤC THANH TOÁN'),
                     ),
                   ),
                   const SizedBox(height: 20),
